@@ -33,6 +33,7 @@ URTSCamera::URTSCamera()
 	this->ZoomCatchupSpeed = 4;
 	this->ZoomSpeed = -200;
 
+	// 绑定操作
 	static ConstructorHelpers::FObjectFinder<UInputAction>
 		MoveCameraXAxisFinder(TEXT("/OpenRTSCamera/Inputs/MoveCameraXAxis"));
 	static ConstructorHelpers::FObjectFinder<UInputAction>
@@ -60,13 +61,20 @@ URTSCamera::URTSCamera()
 void URTSCamera::BeginPlay()
 {
 	Super::BeginPlay();
+	// 获得组件引用
 	this->CollectComponentDependencyReferences();
+	// 初始化弹簧臂
 	this->ConfigureSpringArm();
+	// 视图找到边界体积的引用
 	this->TryToFindBoundaryVolumeReference();
+	// 检查是否启用边缘滚动
 	this->ConditionallyEnableEdgeScrolling();
+	// 检查是否设置了输入
 	this->CheckForEnhancedInputComponent();
+	// 绑定输入
 	this->BindInputMappingContext();
 	this->BindInputActions();
+	// 设置活动相机
 	this->SetActiveCamera();
 }
 
@@ -98,6 +106,11 @@ void URTSCamera::UnFollowTarget()
 
 void URTSCamera::OnZoomCamera(const FInputActionValue& Value)
 {
+	/**
+	 * 正在缩放摄像机时
+	 * 设置长度
+	 * 同时始终把长度限制在最大和最小值之间
+	 */
 	this->DesiredZoomLength = FMath::Clamp(
 		this->DesiredZoomLength + Value.Get<float>() * this->ZoomSpeed,
 		this->MinimumZoomLength,
@@ -107,6 +120,11 @@ void URTSCamera::OnZoomCamera(const FInputActionValue& Value)
 
 void URTSCamera::OnRotateCamera(const FInputActionValue& Value)
 {
+	/**
+	 * 正在旋转摄像机时
+	 * 先获取根组件的旋转
+	 * 在此基础上增加旋转Z值
+	 */
 	const auto WorldRotation = this->Root->GetComponentRotation();
 	this->Root->SetWorldRotation(
 		FRotator::MakeFromEuler(
@@ -121,6 +139,11 @@ void URTSCamera::OnRotateCamera(const FInputActionValue& Value)
 
 void URTSCamera::OnTurnCameraLeft(const FInputActionValue&)
 {
+	/**
+	 * 向左旋转摄像机时
+	 * 先获得根组件相对旋转
+	 * 在此基础上减旋转Z值
+	 */
 	const auto WorldRotation = this->Root->GetRelativeRotation();
 	this->Root->SetRelativeRotation(
 		FRotator::MakeFromEuler(
@@ -135,6 +158,11 @@ void URTSCamera::OnTurnCameraLeft(const FInputActionValue&)
 
 void URTSCamera::OnTurnCameraRight(const FInputActionValue&)
 {
+	/**
+	 * 向右旋转摄像机时
+	 * 先获得根组件相对旋转
+	 * 在此基础上加旋转Z值
+	 */
 	const auto WorldRotation = this->Root->GetRelativeRotation();
 	this->Root->SetRelativeRotation(
 		FRotator::MakeFromEuler(
@@ -149,6 +177,11 @@ void URTSCamera::OnTurnCameraRight(const FInputActionValue&)
 
 void URTSCamera::OnMoveCameraYAxis(const FInputActionValue& Value)
 {
+	/**
+	 * 在Y方向移动摄像机
+	 * 传入弹簧臂的前向量
+	 * 请求移动摄像机
+	 */
 	this->RequestMoveCamera(
 		this->SpringArm->GetForwardVector().X,
 		this->SpringArm->GetForwardVector().Y,
@@ -158,6 +191,11 @@ void URTSCamera::OnMoveCameraYAxis(const FInputActionValue& Value)
 
 void URTSCamera::OnMoveCameraXAxis(const FInputActionValue& Value)
 {
+	/**
+	 * 在X方向移动摄像机
+	 * 传入弹簧臂的右向量
+	 * 请求移动摄像机
+	 */
 	this->RequestMoveCamera(
 		this->SpringArm->GetRightVector().X,
 		this->SpringArm->GetRightVector().Y,
@@ -169,6 +207,9 @@ void URTSCamera::OnDragCamera(const FInputActionValue& Value)
 {
 	if (!this->IsDragging && Value.Get<bool>())
 	{
+		/**
+		 * 开始拖动时，需要记录开始拖动的位置，即当前鼠标在视口的位置
+		 */
 		this->IsDragging = true;
 		this->DragStartLocation = UWidgetLayoutLibrary::GetMousePositionOnViewport(this->GetWorld());
 	}
@@ -176,6 +217,13 @@ void URTSCamera::OnDragCamera(const FInputActionValue& Value)
 	else if (this->IsDragging && Value.Get<bool>())
 	{
 		const auto MousePosition = UWidgetLayoutLibrary::GetMousePositionOnViewport(this->GetWorld());
+		/**
+		 * auto = FVector2D
+		 * 获得视口的尺寸
+		 * Gets the geometry of the widget holding all widgets added to the "Viewport". You can use this geometry to convert between absolute and local space of widgets held on this widget.	
+		 * DragExtents = ViewportExtents 见DragExtent的注释
+		 * 乘DragExtent控制拖动相机的速率
+		 */
 		auto DragExtents = UWidgetLayoutLibrary::GetViewportWidgetGeometry(this->GetWorld()).GetLocalSize();
 		DragExtents *= DragExtent;
 		
@@ -183,6 +231,9 @@ void URTSCamera::OnDragCamera(const FInputActionValue& Value)
 		Delta.X = FMath::Clamp(Delta.X, -DragExtents.X, DragExtents.X) / DragExtents.X;
 		Delta.Y = FMath::Clamp(Delta.Y, -DragExtents.Y, DragExtents.Y) / DragExtents.Y;
 		
+		/**
+		 * 同时请求摄像机在X和Y方向的移动
+		 */
 		this->RequestMoveCamera(
 			this->SpringArm->GetRightVector().X,
 			this->SpringArm->GetRightVector().Y,
@@ -213,6 +264,9 @@ void URTSCamera::RequestMoveCamera(const float X, const float Y, const float Sca
 
 void URTSCamera::ApplyMoveCameraCommands()
 {
+	/**
+	 * 执行每一个移动指令
+	 */
 	for (const auto& [X, Y, Scale] : this->MoveCameraCommands)
 	{
 		auto Movement = FVector2D(X, Y);
@@ -223,11 +277,21 @@ void URTSCamera::ApplyMoveCameraCommands()
 		);
 	}
 
+	/**
+	 * 清空
+	 */
 	this->MoveCameraCommands.Empty();
 }
 
 void URTSCamera::CollectComponentDependencyReferences()
 {
+	/**
+	 * Owner 组件拥有者actor
+	 * Root 根组件
+	 * Camera 摄像机
+	 * SpringArm 弹簧臂
+	 * PlayerController 玩家控制器0
+	 */
 	this->Owner = this->GetOwner();
 	this->Root = this->Owner->GetRootComponent();
 	this->Camera = Cast<UCameraComponent>(this->Owner->GetComponentByClass(UCameraComponent::StaticClass()));
@@ -255,6 +319,9 @@ void URTSCamera::ConfigureSpringArm()
 
 void URTSCamera::TryToFindBoundaryVolumeReference()
 {
+	/**
+	 * 从游戏标签寻找边界体积
+	 */
 	TArray<AActor*> BlockingVolumes;
 	UGameplayStatics::GetAllActorsOfClassWithTag(
 		this->GetWorld(),
@@ -262,7 +329,9 @@ void URTSCamera::TryToFindBoundaryVolumeReference()
 		this->CameraBlockingVolumeTag,
 		BlockingVolumes
 	);
-
+	/**
+	 * 找到了，数组长度 > 0
+	 */
 	if (BlockingVolumes.Num() > 0)
 	{
 		this->BoundaryVolume = BlockingVolumes[0];
@@ -271,6 +340,9 @@ void URTSCamera::TryToFindBoundaryVolumeReference()
 
 void URTSCamera::ConditionallyEnableEdgeScrolling() const
 {
+	/**
+	 * Data structure used to setup an input mode that allows the UI to respond to user input, and if the UI doesn't handle it player input / player controller gets a chance.
+	 */
 	if (this->EnableEdgeScrolling)
 	{
 		FInputModeGameAndUI InputMode;
@@ -282,6 +354,9 @@ void URTSCamera::ConditionallyEnableEdgeScrolling() const
 
 void URTSCamera::CheckForEnhancedInputComponent() const
 {
+	/**
+	 * 如果没有启用EnhancedInput需要弹出警告
+	 */
 	if (Cast<UEnhancedInputComponent>(this->PlayerController->InputComponent) == nullptr)
 	{
 		UKismetSystemLibrary::PrintString(
@@ -309,7 +384,13 @@ void URTSCamera::CheckForEnhancedInputComponent() const
 
 void URTSCamera::BindInputMappingContext() const
 {
+	/**
+	 * 显示鼠标指针
+	 */
 	this->PlayerController->bShowMouseCursor = true;
+	/**
+	 * 将EnhancedInput添加进键位映射中
+	 */
 	const auto Subsystem = this
 	                       ->PlayerController
 	                       ->GetLocalPlayer()
@@ -320,6 +401,9 @@ void URTSCamera::BindInputMappingContext() const
 
 void URTSCamera::BindInputActions()
 {
+	/**
+	 * 绑定输入到函数
+	 */
 	if (const auto EnhancedInputComponent = Cast<UEnhancedInputComponent>(this->PlayerController->InputComponent))
 	{
 		EnhancedInputComponent->BindAction(
@@ -393,6 +477,10 @@ void URTSCamera::EdgeScrollLeft() const
 {
 	const auto MousePosition = UWidgetLayoutLibrary::GetMousePositionOnViewport(this->GetWorld());
 	const auto ViewportSize = UWidgetLayoutLibrary::GetViewportWidgetGeometry(this->GetWorld()).GetLocalSize();
+	/**
+ 	 * NormalizeToRange:
+	 * Returns Value normalized to the given range. (e.g. 20 normalized to the range 10->50 would result in 0.25)
+	 */
 	const auto NormalizedMousePosition = 1 - UKismetMathLibrary::NormalizeToRange(
 		MousePosition.X,
 		0.0f,
@@ -456,6 +544,9 @@ void URTSCamera::EdgeScrollDown() const
 
 void URTSCamera::FollowTargetIfSet() const
 {
+	/**
+	 * 如果需要跟随目标，则将根组件的位置设置成目标的位置
+	 */
 	if (this->CameraFollowTarget != nullptr)
 	{
 		this->Root->SetWorldLocation(this->CameraFollowTarget->GetActorLocation());
@@ -464,6 +555,9 @@ void URTSCamera::FollowTargetIfSet() const
 
 void URTSCamera::SmoothTargetArmLengthToDesiredZoom() const
 {
+	/**
+	 * 通过改变弹簧臂（插值）的长度实现平滑缩放
+	 */
 	this->SpringArm->TargetArmLength = FMath::FInterpTo(
 		this->SpringArm->TargetArmLength,
 		this->DesiredZoomLength,
@@ -480,6 +574,10 @@ void URTSCamera::ConditionallyKeepCameraAtDesiredZoomAboveGround()
 		const TArray<AActor*> ActorsToIgnore;
 
 		auto HitResult = FHitResult();
+		/**
+		 * 从很高很高的地方竖直向很低很低的地方发射线
+		 // TODO: 遇到多层楼是不是会有BUG？能不能从root开始向上发射线，遇到的第一个阻挡即为最高点？
+		 */
 		auto DidHit = UKismetSystemLibrary::LineTraceSingle(
 			this->GetWorld(),
 			FVector(RootWorldLocation.X, RootWorldLocation.Y, RootWorldLocation.Z + this->FindGroundTraceLength),
@@ -489,9 +587,11 @@ void URTSCamera::ConditionallyKeepCameraAtDesiredZoomAboveGround()
 			ActorsToIgnore,
 			EDrawDebugTrace::Type::None,
 			HitResult,
-			true
+			true,
 		);
-
+		/**
+		 * 如果有击中，则那个位置是当前场景的最高点，动态调整相机到那个高度
+		 */
 		if (DidHit)
 		{
 			this->Root->SetWorldLocation(
@@ -544,7 +644,16 @@ void URTSCamera::ConditionallyApplyCameraBounds() const
 		const auto RootWorldLocation = this->Root->GetComponentLocation();
 		FVector Origin;
 		FVector Extents;
+		/**
+		 * GetActorBounds()
+		 * Returns the bounding box of all components that make up this Actor (excluding ChildActorComponents).
+		 * Output1: Origin: center of the actor in world space
+		 * Output2: Extents: half the actor's size in 3d space
+		 */
 		this->BoundaryVolume->GetActorBounds(false, Origin, Extents);
+		/**
+		 * 重新调整root的位置，如果超出了边界就会被限制回边界
+		 */
 		this->Root->SetWorldLocation(
 			FVector(
 				UKismetMathLibrary::Clamp(RootWorldLocation.X, Origin.X - Extents.X, Origin.X + Extents.X),

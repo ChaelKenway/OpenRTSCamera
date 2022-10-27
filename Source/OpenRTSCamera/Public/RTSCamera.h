@@ -83,15 +83,21 @@ public:
 	)
 	float DragExtent;
 
+	// 摄像机延迟
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RTSCamera")
 	bool EnableCameraLag;
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RTSCamera")
 	bool EnableCameraRotationLag;
 
+	// 启用动态高度调整
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RTSCamera - Dynamic Camera Height Settings")
 	bool EnableDynamicCameraHeight;
+
+	// 设置碰撞
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RTSCamera - Dynamic Camera Height Settings")
 	TEnumAsByte<ECollisionChannel> CollisionChannel;
+
+	
 	UPROPERTY(
 		BlueprintReadWrite,
 		EditAnywhere,
@@ -102,6 +108,7 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RTSCamera - Edge Scroll Settings")
 	bool EnableEdgeScrolling;
+
 	UPROPERTY(
 		BlueprintReadWrite,
 		EditAnywhere,
@@ -109,6 +116,7 @@ public:
 		meta=(EditCondition="EnableEdgeScrolling")
 	)
 	float EdgeScrollSpeed;
+
 	UPROPERTY(
 		BlueprintReadWrite,
 		EditAnywhere,
@@ -117,6 +125,7 @@ public:
 	)
 	float DistanceFromEdgeThreshold;
 
+	// 输入映射
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RTSCamera - Inputs")
 	UInputMappingContext* InputMappingContext;
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RTSCamera - Inputs")

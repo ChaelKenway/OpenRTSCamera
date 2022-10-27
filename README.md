@@ -1,9 +1,10 @@
 # OpenRTSCamera
 
+- Forked from [HeyZoos](https://github.com/HeyZoos/OpenRTSCamera)
+- Modified by [Yuzhu](https://github.com/ChaelKenway/OpenRTSCamera) for studying.
+
 - [Installing from GitHub](https://github.com/HeyZoos/OpenRTSCamera/wiki/Installing-from-GitHub)
 - [Getting Started](https://github.com/HeyZoos/OpenRTSCamera/wiki/Getting-Started)
-
-- Modified by [Yuzhu](https://github.com/ChaelKenway/OpenRTSCamera) for studying.
 
 ## Features
 
