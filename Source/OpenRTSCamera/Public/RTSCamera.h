@@ -13,6 +13,8 @@
  * We use these commands so that move camera inputs can be tied to the tick rate of the game.
  * https://github.com/HeyZoos/OpenRTSCamera/issues/27
  */
+
+// 移动指令
 USTRUCT()
 struct FMoveCameraCommand
 {
@@ -39,9 +41,11 @@ public:
 		FActorComponentTickFunction* ThisTickFunction
 	) override;
 
+	// 跟随目标
 	UFUNCTION(BlueprintCallable, Category = "RTSCamera")
 	void FollowTarget(AActor* Target);
 
+	// 取消跟随目标
 	UFUNCTION(BlueprintCallable, Category = "RTSCamera")
 	void UnFollowTarget();
 
